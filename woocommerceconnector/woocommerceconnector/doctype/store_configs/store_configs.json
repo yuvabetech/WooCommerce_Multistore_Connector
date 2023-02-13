@@ -1,0 +1,52 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2023-02-09 12:42:17.591729",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "woocommerce_url",
+  "api_key",
+  "api_secret",
+  "verify_ssl"
+ ],
+ "fields": [
+  {
+   "fieldname": "woocommerce_url",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Woocommcerce_url"
+  },
+  {
+   "fieldname": "api_key",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Api Key"
+  },
+  {
+   "fieldname": "api_secret",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Api Secret"
+  },
+  {
+   "default": "0",
+   "fieldname": "verify_ssl",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Verify Ssl"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2023-02-13 10:35:41.419696",
+ "modified_by": "Administrator",
+ "module": "WooCommerceConnector",
+ "name": "Store Configs",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}
