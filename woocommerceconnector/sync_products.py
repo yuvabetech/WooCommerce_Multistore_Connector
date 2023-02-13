@@ -399,7 +399,7 @@ def sync_erpnext_items(store_settings,price_list, warehouse, woocommerce_item_li
 
     for item in get_erpnext_items(price_list):
         try:
-            sync_item_with_woocommerce(item, price_list, warehouse, woocommerce_item_list.get(item.get('woocommerce_product_id')))
+            sync_item_with_woocommerce(store_settings,item, price_list, warehouse, woocommerce_item_list.get(item.get('woocommerce_product_id')))
             frappe.local.form_dict.count_dict["products"] += 1
 
         except woocommerceError as e:
@@ -467,7 +467,7 @@ def get_erpnext_items(price_list):
     return [frappe._dict(tupleized) for tupleized in set(tuple(item.items())
         for item in erpnext_items + updated_price_item_list)]
 
-def sync_item_with_woocommerce(item, price_list, warehouse, woocommerce_item=None):
+def sync_item_with_woocommerce(store_settings,item, price_list, warehouse, woocommerce_item=None):
     variant_item_name_list = []
     variant_list = []
     item_data = {
@@ -496,18 +496,18 @@ def sync_item_with_woocommerce(item, price_list, warehouse, woocommerce_item=Non
     if not item.get("woocommerce_product_id"):
         item_data["status"] = "draft"
 
-        create_new_item_to_woocommerce(item, item_data, erp_item, variant_item_name_list)
+        create_new_item_to_woocommerce(store_settings,item, item_data, erp_item, variant_item_name_list)
 
     else:
         item_data["id"] = item.get("woocommerce_product_id")
         try:
-            put_request("products/{0}".format(item.get("woocommerce_product_id")), item_data)
+            put_request("products/{0}".format(item.get("woocommerce_product_id")), item_data,store_settings)
 
         except requests.exceptions.HTTPError as e:
             if e.args[0] and (e.args[0].startswith("404") or e.args[0].startswith("400")):
                 if frappe.db.get_value("WooCommerce Config", "WooCommerce Config", "if_not_exists_create_item_to_woocommerce"):
                     item_data["id"] = ''
-                    create_new_item_to_woocommerce(item, item_data, erp_item, variant_item_name_list)
+                    create_new_item_to_woocommerce(store_settings,item, item_data, erp_item, variant_item_name_list)
                 else:
                     disable_woocommerce_sync_for_item(erp_item)
             else:
@@ -538,8 +538,8 @@ def sync_item_with_woocommerce(item, price_list, warehouse, woocommerce_item=Non
     frappe.db.commit()
 
 
-def create_new_item_to_woocommerce(item, item_data, erp_item, variant_item_name_list):
-    new_item = post_request("products", item_data)
+def create_new_item_to_woocommerce(store_settings,item, item_data, erp_item, variant_item_name_list):
+    new_item = post_request("products", item_data,store_settings)
 
     erp_item.woocommerce_product_id = new_item.get("id")
 
