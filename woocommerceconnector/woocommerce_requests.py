@@ -69,8 +69,8 @@ def get_request_request(path, settings=None):
 def get_request(path, settings=None):
     return get_request_request(path, settings).json()
         
-def post_request(path, data):
-        settings = get_woocommerce_settings()
+def post_request(path, data,settings):
+        # settings = get_woocommerce_settings()
         
         wcapi = API(
                 url=settings['woocommerce_url'],
