@@ -11,10 +11,10 @@ import requests.exceptions
 import base64, requests, datetime, os
 
 
-def sync_orders():
-    sync_woocommerce_orders()
+def sync_orders(store_settings):
+    sync_woocommerce_orders(store_settings)
 
-def sync_woocommerce_orders():
+def sync_woocommerce_orders(store_settings):
     frappe.local.form_dict.count_dict["orders"] = 0
     woocommerce_settings = frappe.get_doc("WooCommerce Config", "WooCommerce Config")
     woocommerce_order_status_for_import = get_woocommerce_order_status_for_import()
@@ -22,7 +22,7 @@ def sync_woocommerce_orders():
         woocommerce_order_status_for_import = ['processing']
         
     for woocommerce_order_status in woocommerce_order_status_for_import:
-        for woocommerce_order in get_woocommerce_orders(woocommerce_order_status):
+        for woocommerce_order in get_woocommerce_orders(store_settings,woocommerce_order_status):
             so = frappe.db.get_value("Sales Order", {"woocommerce_order_id": woocommerce_order.get("id")}, "name")
             if not so:
                 if valid_customer_and_product(woocommerce_order):
@@ -40,7 +40,7 @@ def sync_woocommerce_orders():
                             make_woocommerce_log(title=e.message, status="Error", method="sync_woocommerce_orders", message=frappe.get_traceback(),
                                 request_data=woocommerce_order, exception=True)
             # close this order as synced
-            close_synced_woocommerce_order(woocommerce_order.get("id"))
+            close_synced_woocommerce_order(woocommerce_order.get("id"),store_settings)
                 
 def get_woocommerce_order_status_for_import():
     status_list = []
@@ -442,12 +442,12 @@ def close_synced_woocommerce_orders():
                 make_woocommerce_log(title=e, status="Error", method="close_synced_woocommerce_orders", message=frappe.get_traceback(),
                     request_data=woocommerce_order, exception=True)
 
-def close_synced_woocommerce_order(wooid):
+def close_synced_woocommerce_order(wooid,settings):
     order_data = {
         "status": "completed"
     }
     try:
-        put_request("orders/{0}".format(wooid), order_data)
+        put_request("orders/{0}".format(wooid), order_data,settings)
             
     except requests.exceptions.HTTPError as e:
         make_woocommerce_log(title=e.message, status="Error", method="close_synced_woocommerce_order", message=frappe.get_traceback(),

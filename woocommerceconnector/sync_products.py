@@ -14,19 +14,19 @@ import json
 
 woocommerce_variants_attr_list = ["option1", "option2", "option3"]
 
-def sync_products(price_list, warehouse, sync_from_woocommerce=False):
+def sync_products(store_settings,price_list, warehouse, sync_from_woocommerce=False):
     woocommerce_settings = frappe.get_doc("WooCommerce Config", "WooCommerce Config")
     woocommerce_item_list = []
     if sync_from_woocommerce:
-        sync_woocommerce_items(warehouse, woocommerce_item_list)
+        sync_woocommerce_items(store_settings,warehouse, woocommerce_item_list)
     frappe.local.form_dict.count_dict["products"] = len(woocommerce_item_list)
     if woocommerce_settings.if_not_exists_create_item_to_woocommerce == 1:
-        sync_erpnext_items(price_list, warehouse, woocommerce_item_list)
+        sync_erpnext_items(store_settings,price_list, warehouse, woocommerce_item_list)
     if woocommerce_settings.rewrite_stock_uom_from_wc_unit == 1:
         rewrite_stock_uom_from_wc_unit()
 
-def sync_woocommerce_items(warehouse, woocommerce_item_list):
-    for woocommerce_item in get_woocommerce_items():
+def sync_woocommerce_items(store_settings,warehouse, woocommerce_item_list):
+    for woocommerce_item in get_woocommerce_items(store_settings):
         try:
             make_item(warehouse, woocommerce_item, woocommerce_item_list)
 
@@ -392,9 +392,9 @@ def get_item_details(woocommerce_item):
             ["name", "stock_uom", "item_name"], as_dict=1)
         return item_details
 
-def sync_erpnext_items(price_list, warehouse, woocommerce_item_list):
+def sync_erpnext_items(store_settings,price_list, warehouse, woocommerce_item_list):
     woocommerce_item_list = {}
-    for item in get_woocommerce_items():
+    for item in get_woocommerce_items(store_settings):
         woocommerce_item_list[int(item['id'])] = item
 
     for item in get_erpnext_items(price_list):

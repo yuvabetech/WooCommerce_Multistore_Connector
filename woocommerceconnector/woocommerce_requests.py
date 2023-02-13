@@ -22,30 +22,33 @@ _per_page=100
 #    if response.headers.get("HTTP_X_woocommerce_SHOP_API_CALL_LIMIT") == 39:
 #        time.sleep(10)    # pause 10 seconds
 
+def get_woocommerce_stores_settings():
+    doc = frappe.get_all(" Config", fields=["name", "woocommerce_url", "api_key", "api_secret", "verify_ssl"])
 def get_woocommerce_settings():
     d = frappe.get_doc("WooCommerce Config")
+    return d.as_dict()
     
-    if d.woocommerce_url:
-        d.api_secret = d.get_password(fieldname='api_secret')
-        return d.as_dict()
+    # if d.woocommerce_url:
+    #     d.api_secret = d.get_password(fieldname='api_secret')
+    #     return d.as_dict()
     
-    else:
-        frappe.throw(_("woocommerce store URL is not configured on WooCommerce Config"), woocommerceError)
+    # else:
+    #     frappe.throw(_("woocommerce store URL is not configured on WooCommerce Config"), woocommerceError)
 
 def get_request_request(path, settings=None):
         if not settings:
                 settings = get_woocommerce_settings()
 
-        if cint(settings['verify_ssl']) == 1:
-            verify_ssl = True
-        else:
-            verify_ssl = False
+        # if cint(settings['verify_ssl']) == 1:
+        #     verify_ssl = True
+        # else:
+        #     verify_ssl = False
             
         wcapi = API(
                 url=settings['woocommerce_url'],
                 consumer_key=settings['api_key'],
                 consumer_secret=settings['api_secret'],
-                verify_ssl=verify_ssl,
+                verify_ssl=settings['verify_ssl'],
                 wp_api=True,
                 version="wc/v3",
                 timeout=1000
@@ -92,8 +95,8 @@ def post_request(path, data):
                 exception=True)
         return r.json()
 
-def put_request(path, data):
-        settings = get_woocommerce_settings()
+def put_request(path, data,settings):
+        # settings = get_woocommerce_settings()
         
         wcapi = API(
                 url=settings['woocommerce_url'],
@@ -120,7 +123,7 @@ def put_request(path, data):
         return r.json()
 
 def delete_request(path):
-        s = get_request_session()
+        settings = get_request_session()
 
         wcapi = API(
                 url=settings['woocommerce_url'],
@@ -163,7 +166,7 @@ def get_filtering_condition():
 def get_country():
     return get_request('/admin/countries.json')['countries']
 
-def get_woocommerce_items(ignore_filter_conditions=False):
+def get_woocommerce_items(store_settings,ignore_filter_conditions=False):
     woocommerce_products = []
 
     filter_condition = ''
@@ -172,11 +175,11 @@ def get_woocommerce_items(ignore_filter_conditions=False):
         if cint(frappe.get_value("WooCommerce Config", "WooCommerce Config", "sync_only_published")) == 1:
             filter_condition += "&status=publish"
 
-    response = get_request_request('products?per_page={0}&{1}'.format(_per_page,filter_condition) )
+    response = get_request_request('products?per_page={0}&{1}'.format(_per_page,filter_condition),store_settings )
     woocommerce_products.extend(response.json())
 
     for page_idx in range(1, int( response.headers.get('X-WP-TotalPages')) or 1):
-        response = get_request_request('products?per_page={0}&page={1}&{2}'.format(_per_page,page_idx+1,filter_condition) )
+        response = get_request_request('products?per_page={0}&page={1}&{2}'.format(_per_page,page_idx+1,filter_condition),store_settings )
         woocommerce_products.extend(response.json())
 
     return woocommerce_products
@@ -206,19 +209,19 @@ def get_woocommerce_customer(woocommerce_customer_id):
     return get_request("customers/{0}".format(woocommerce_customer_id))
 
 
-def get_woocommerce_orders(order_status):
+def get_woocommerce_orders(store_settings,order_status):
     woocommerce_orders = []
 
-    response = get_request_request('orders?per_page={0}&status={1}'.format(_per_page,order_status))
+    response = get_request_request('orders?per_page={0}&status={1}'.format(_per_page,order_status),store_settings)
     woocommerce_orders.extend(response.json())
         
     for page_idx in range(1, int( response.headers.get('X-WP-TotalPages')) or 1):
-        response = get_request_request('orders?per_page={0}&page={1}&status={2}'.format(_per_page,page_idx+1,order_status))
+        response = get_request_request('orders?per_page={0}&page={1}&status={2}'.format(_per_page,page_idx+1,order_status),store_settings)
         woocommerce_orders.extend(response.json())
 
     return woocommerce_orders
 
-def get_woocommerce_customers(ignore_filter_conditions=False):
+def get_woocommerce_customers(settings,ignore_filter_conditions=False):
     woocommerce_customers = []
 
     filter_condition = ''
@@ -226,11 +229,11 @@ def get_woocommerce_customers(ignore_filter_conditions=False):
     if not ignore_filter_conditions:
         filter_condition = get_filtering_condition()
 
-        response = get_request_request('customers?per_page={0}&{1}'.format(_per_page,filter_condition))
+        response = get_request_request('customers?per_page={0}&{1}'.format(_per_page,filter_condition),settings)
         woocommerce_customers.extend(response.json())
 
         for page_idx in range(1, int( response.headers.get('X-WP-TotalPages')) or 1):
-            response = get_request_request('customers?per_page={0}&page={1}&{2}'.format(_per_page,page_idx+1,filter_condition))
+            response = get_request_request('customers?per_page={0}&page={1}&{2}'.format(_per_page,page_idx+1,filter_condition),settings)
             woocommerce_customers.extend(response.json())
 
     return woocommerce_customers

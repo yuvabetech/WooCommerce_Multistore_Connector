@@ -14,25 +14,26 @@ class WooCommerceConfig(Document):
     def validate(self):
         if self.enable_woocommerce == 1:
             self.validate_access_credentials()
-            self.validate_access()
-
+    
     def validate_access_credentials(self):
-        if not (self.get_password(fieldname='api_secret', raise_exception=False) and self.api_key and self.woocommerce_url):
-            frappe.msgprint(_("Missing value for Consumer Key, Consumer Secret, or woocommerce URL"), raise_exception=woocommerceSetupError)
+        if len(self.store_configs) == 0:
+            frappe.msgprint(_("Please add at least one store configuration"), raise_exception=woocommerceSetupError)
+        else:
+            for store in self.store_configs:
+                if not store.api_key or not store.api_secret or not store.woocommerce_url:
+                    frappe.msgprint(_("Missing value for Consumer Key, Consumer Secret, or woocommerce URL"), raise_exception=woocommerceSetupError)
+                else:
+                    try:
+                        r = get_request('settings', {"api_key": store.api_key,
+                            "api_secret": store.get_password(fieldname='api_secret',raise_exception=False), "woocommerce_url": store.woocommerce_url, "verify_ssl": store.verify_ssl})
 
+                    except requests.exceptions.HTTPError:
+                        # disable woocommerce!
+                        frappe.db.rollback()
+                        store.set("enable_woocommerce", 0)
+                        frappe.db.commit()
 
-    def validate_access(self):
-        try:
-            r = get_request('settings', {"api_key": self.api_key,
-                "api_secret": self.get_password(fieldname='api_secret',raise_exception=False), "woocommerce_url": self.woocommerce_url, "verify_ssl": self.verify_ssl})
-
-        except requests.exceptions.HTTPError:
-            # disable woocommerce!
-            frappe.db.rollback()
-            self.set("enable_woocommerce", 0)
-            frappe.db.commit()
-
-            frappe.throw(_("""Error Validating API"""), woocommerceSetupError)
+                        frappe.throw(_("""Error Validating API"""), woocommerceSetupError)
 
 
 @frappe.whitelist()

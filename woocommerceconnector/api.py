@@ -19,27 +19,37 @@ def check_hourly_sync():
         sync_woocommerce()
 
 @frappe.whitelist()
-def sync_woocommerce():
-    """Enqueue longjob for syncing woocommerce"""
-    woocommerce_settings = frappe.get_doc("WooCommerce Config")
-    if woocommerce_settings.sync_timeout == 0:
-        woocommerce_settings.sync_timeout = 1500
-        woocommerce_settings.save()
-    timeout = woocommerce_settings.sync_timeout or 1500
-    # apply minimal timeout of 60 sec
-    if timeout < 60:
-        timeout = 60
-    enqueue("woocommerceconnector.api.sync_woocommerce_resources", queue='long', timeout=timeout)
-    frappe.msgprint(_("Queued for syncing. It may take a few minutes to an hour if this is your first sync."))
+def sync_woocommerce(store_data=None):
+    def sync_store(store_data=None):
+        
+        """Enqueue longjob for syncing woocommerce"""
+        woocommerce_settings = frappe.get_doc("WooCommerce Config")
+        if woocommerce_settings.sync_timeout == 0:
+            woocommerce_settings.sync_timeout = 1500
+            woocommerce_settings.save()
+        timeout = woocommerce_settings.sync_timeout or 1500
+        # apply minimal timeout of 60 sec
+        if timeout < 60:
+            timeout = 60
+        enqueue("woocommerceconnector.api.sync_woocommerce_resources",store_settings=store_data, queue='long', timeout=timeout)
+        frappe.msgprint(_("Queued store for syncing. It may take a few minutes to an hour if this is your first sync."))
+
+    woo_stores = frappe.get_all("Store Configs", fields=['woocommerce_url','api_key','api_secret','verify_ssl'])
+    for store in woo_stores:
+        sync_store(store)
+
+
 
 @frappe.whitelist()
-def sync_woocommerce_resources():
+def sync_woocommerce_resources(store_settings=None):
+    
     woocommerce_settings = frappe.get_doc("WooCommerce Config")
+    woocommerce_stores = frappe.get_all("Store Configs", fields=['woocommerce_url','api_key','api_secret','verify_ssl'])
 
     make_woocommerce_log(title="Sync Job Queued", status="Queued", method=frappe.local.form_dict.cmd, message="Sync Job Queued")
     
     if woocommerce_settings.enable_woocommerce:
-        make_woocommerce_log(title="Sync Job Started", status="Started", method=frappe.local.form_dict.cmd, message="Sync Job Started")
+        make_woocommerce_log(title="Sync Job Started"+store_settings['woocommerce_url'], status="Started", method=frappe.local.form_dict.cmd, message="Sync Job Started")
         try :
             validate_woocommerce_settings(woocommerce_settings)
             sync_start_time = frappe.utils.now()
@@ -47,15 +57,15 @@ def sync_woocommerce_resources():
             frappe.local.form_dict.count_dict["customers"] = 0
             frappe.local.form_dict.count_dict["products"] = 0
             frappe.local.form_dict.count_dict["orders"] = 0
-            sync_products(woocommerce_settings.price_list, woocommerce_settings.warehouse, True if woocommerce_settings.sync_items_from_woocommerce_to_erp == 1 else False)
-            sync_customers()
-            sync_orders()
+            sync_products(store_settings,woocommerce_settings.price_list, woocommerce_settings.warehouse, True if woocommerce_settings.sync_items_from_woocommerce_to_erp == 1 else False)
+            sync_customers(store_settings)
+            sync_orders(store_settings)
             # close_synced_woocommerce_orders() # DO NOT GLOBALLY CLOSE
             if woocommerce_settings.sync_item_qty_from_erpnext_to_woocommerce:
                 update_item_stock_qty()
             frappe.db.set_value("WooCommerce Config", None, "last_sync_datetime", sync_start_time)
-            make_woocommerce_log(title="Sync Completed", status="Success", method=frappe.local.form_dict.cmd, 
-                message= "Updated {customers} customer(s), {products} item(s), {orders} order(s)".format(**frappe.local.form_dict.count_dict))
+            make_woocommerce_log(title="Sync Completed -"+store_settings['woocommerce_url'], status="Success", method=frappe.local.form_dict.cmd, 
+                message= "Updated  On {store_settings}- {customers} customer(s), {products} item(s), {orders} order(s)".format(**frappe.local.form_dict.count_dict, store_settings=store_settings['woocommerce_url']))
 
         except Exception as e:
             if e.args[0] and hasattr(e.args[0], "startswith") and e.args[0].startswith("402"):
